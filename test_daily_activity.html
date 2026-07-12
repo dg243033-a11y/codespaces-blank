@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Daily Activity (2026-06-15)</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+      padding: 30px;
+      max-width: 600px;
+      width: 100%;
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+      margin-top: 0;
+    }
+    .chart-wrapper {
+      position: relative;
+      height: 400px;
+      margin-bottom: 30px;
+    }
+    .stats {
+      background: #f5f5f5;
+      padding: 15px;
+      border-radius: 8px;
+      margin-top: 20px;
+    }
+    .stat-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #ddd;
+    }
+    .stat-item:last-child {
+      border-bottom: none;
+    }
+    .stat-label {
+      font-weight: 500;
+      color: #555;
+    }
+    .stat-value {
+      font-weight: bold;
+      color: #333;
+    }
+    .total {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 2px solid #667eea;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎯 1日の活動 (2026-06-15)</h1>
+    <div class="chart-wrapper">
+      <canvas id="pieChart"></canvas>
+    </div>
+    <div class="stats">
+      
+        <div class="stat-item">
+          <span class="stat-label">
+            <span style="display: inline-block; width: 12px; height: 12px; background: #FF6384; border-radius: 2px; margin-right: 8px;"></span>
+            Sleep
+          </span>
+          <span class="stat-value">480分</span>
+        </div>
+      
+        <div class="stat-item">
+          <span class="stat-label">
+            <span style="display: inline-block; width: 12px; height: 12px; background: #36A2EB; border-radius: 2px; margin-right: 8px;"></span>
+            Work
+          </span>
+          <span class="stat-value">480分</span>
+        </div>
+      
+        <div class="stat-item">
+          <span class="stat-label">
+            <span style="display: inline-block; width: 12px; height: 12px; background: #FFCE56; border-radius: 2px; margin-right: 8px;"></span>
+            Relax
+          </span>
+          <span class="stat-value">240分</span>
+        </div>
+      
+        <div class="stat-item">
+          <span class="stat-label">
+            <span style="display: inline-block; width: 12px; height: 12px; background: #4BC0C0; border-radius: 2px; margin-right: 8px;"></span>
+            Meals
+          </span>
+          <span class="stat-value">120分</span>
+        </div>
+      
+        <div class="stat-item">
+          <span class="stat-label">
+            <span style="display: inline-block; width: 12px; height: 12px; background: #9966FF; border-radius: 2px; margin-right: 8px;"></span>
+            Other
+          </span>
+          <span class="stat-value">120分</span>
+        </div>
+      
+      <div class="stat-item total">
+        <span class="stat-label">合計</span>
+        <span class="stat-value">1440分 (24.0時間)</span>
+      </div>
+    </div>
+    <div style="margin-top:18px;">
+      <h3 style="margin:12px 0 6px 0;">🛌 週間の睡眠（先週比）</h3>
+      <div style="background:#fff;padding:12px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.06);">
+        <div>今週の睡眠合計: <strong>0分 (0.0時間)</strong></div>
+        <div>先週の睡眠合計: <strong>0分 (0.0時間)</strong></div>
+        <div>先週からの変化: <strong>比較不能</strong></div>
+      </div>
+    </div>
+    <div style="margin-top:18px;">
+      <h3 style="margin:12px 0 6px 0;">🛏 今日の睡眠確認</h3>
+      <div style="background:#fff;padding:12px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.06);border:1px solid #e5e7eb;">
+        <div>今日の睡眠: <strong>0分 (0.0時間)</strong></div>
+        <div>昨日の睡眠: <strong>0分 (0.0時間)</strong></div>
+        <div>昨日比の変化: <strong>比較不能</strong></div>
+        
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const ctx = document.getElementById('pieChart').getContext('2d');
+    const pieChart = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: ["Sleep","Work","Relax","Meals","Other"],
+        datasets: [{
+          data: [480,480,240,120,120],
+          backgroundColor: ["#FF6384","#36A2EB","#FFCE56","#4BC0C0","#9966FF"],
+          borderColor: '#fff',
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: {
+              usePointStyle: true,
+              padding: 15,
+              font: {
+                size: 14
+              }
+            }
+          }
+        }
+      }
+    });
+  </script>
+</body>
+</html>

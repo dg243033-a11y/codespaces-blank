@@ -148,36 +148,60 @@
     <input id="date" type="date"> 
     <input id="time" type="time"> 
     <input id="title" type="text" placeholder="予定名"> 
+    <select id="priority" style="width:120px">
+      <option value="urgent">urgent</option>
+      <option value="high">high</option>
+      <option value="normal" selected>normal</option>
+      <option value="low">low</option>
+    </select>
     <button id="add">追加</button>
   </div>
 
   <div id="eventsList"></div>
   
-  <div id="calendarRoot" style="margin-top:24px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-      <button id="prevMonth">◀</button>
-      <h2 id="monthLabel" style="font-size:18px;margin:0"></h2>
-      <button id="nextMonth">▶</button>
+  <div id="calendarRoot" style="margin-top:24px; display:flex; gap:20px; flex-wrap:wrap; align-items:flex-start;">
+    <div class="calendar-panel" style="flex:1; min-width:320px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <button id="prevMonth">◀</button>
+        <h2 id="monthLabel" style="font-size:18px;margin:0"></h2>
+        <button id="nextMonth">▶</button>
+      </div>
+      <table id="calendarGrid" style="width:100%;border-collapse:collapse;text-align:center;">
+        <thead>
+          <tr>
+            <th>日</th><th>月</th><th>火</th><th>水</th><th>木</th><th>金</th><th>土</th>
+          </tr>
+        </thead>
+        <tbody id="calendarBody"></tbody>
+      </table>
     </div>
-    <table id="calendarGrid" style="width:100%;border-collapse:collapse;text-align:center;">
-      <thead>
-        <tr>
-          <th>日</th><th>月</th><th>火</th><th>水</th><th>木</th><th>金</th><th>土</th>
-        </tr>
-      </thead>
-      <tbody id="calendarBody"></tbody>
-    </table>
+    <aside class="summary-panel" style="width:320px; min-width:280px;">
+      <div style="background:#f8fafc; border:1px solid #e5e7eb; border-radius:12px; padding:16px;">
+        <h2 style="margin:0 0 12px; font-size:18px; color:#111827;">重要度順一覧</h2>
+        <div id="prioritySummary" style="display:grid; gap:10px;"></div>
+      </div>
+    </aside>
   </div>
   </div>
 
   <script src="っし"></script>
   <script>
+    const PRIORITY_ORDER = ['urgent', 'high', 'normal', 'low'];
+    const PRIORITY_COLOR = {
+      urgent: '#dc2626',
+      high: '#f59e0b',
+      normal: '#2563eb',
+      low: '#0f766e'
+    };
+
     document.getElementById('add').addEventListener('click', async () => {
       const d = document.getElementById('date').value;
       const t = document.getElementById('time').value;
       const title = document.getElementById('title').value;
+      const priority = document.getElementById('priority').value || 'normal';
       if (!d || !t || !title) return alert('日付・時間・タイトルを入力してください');
-      await window.myEvents.addEvent(d, t, title);
+      await window.myEvents.addEvent(d, t, title, priority);
+      renderCurrent();
     });
 
     // expose getAll for potential debugging
@@ -198,6 +222,138 @@
       try { return JSON.parse(localStorage.getItem('events')||'[]'); } catch (e) { return []; }
     }
 
+    function comparePriority(a, b) {
+      const pa = PRIORITY_ORDER.indexOf((a.priority || 'normal').toLowerCase());
+      const pb = PRIORITY_ORDER.indexOf((b.priority || 'normal').toLowerCase());
+      if (pa !== pb) return pa - pb;
+      if (a.date !== b.date) return String(a.date || '').localeCompare(String(b.date || ''));
+      return String(a.time || '').localeCompare(String(b.time || ''));
+    }
+
+    function sortedEventsByPriority(events) {
+      return events.slice().sort(comparePriority);
+    }
+
+    function sortedEventItemsByPriority(items) {
+      return items.slice().sort((a, b) => comparePriority(a.event, b.event));
+    }
+
+    function renderPrioritySummary(events) {
+      const summary = document.getElementById('prioritySummary');
+      if (!summary) return;
+      const sorted = sortedEventsByPriority(events).filter(e => e.date && e.time && e.title);
+      summary.innerHTML = '';
+      if (sorted.length === 0) {
+        summary.innerHTML = '<div style="color:#6b7280;">予定がありません</div>';
+        return;
+      }
+      sorted.forEach((event) => {
+        const item = document.createElement('div');
+        item.style.display = 'grid';
+        item.style.gridTemplateColumns = 'auto 1fr auto';
+        item.style.alignItems = 'center';
+        item.style.gap = '8px';
+        item.style.padding = '10px 12px';
+        item.style.background = '#ffffff';
+        item.style.border = '1px solid #e5e7eb';
+        item.style.borderRadius = '10px';
+
+        const priorityLabel = document.createElement('span');
+        const priorityValue = (event.priority || 'normal').toLowerCase();
+        priorityLabel.textContent = priorityValue;
+        priorityLabel.style.fontSize = '12px';
+        priorityLabel.style.fontWeight = '700';
+        priorityLabel.style.color = PRIORITY_COLOR[priorityValue] || '#334155';
+
+        const title = document.createElement('div');
+        title.innerHTML = `<strong style="display:block;">${event.title}</strong><span style="font-size:12px;color:#475569;">${event.date} ${event.time}</span>`;
+
+        const badge = document.createElement('span');
+        badge.style.display = 'inline-flex';
+        badge.style.alignItems = 'center';
+        badge.style.justifyContent = 'center';
+        badge.style.padding = '4px 10px';
+        badge.style.borderRadius = '999px';
+        badge.style.fontSize = '12px';
+        badge.style.color = '#ffffff';
+        badge.style.background = PRIORITY_COLOR[priorityValue] || '#475569';
+        badge.textContent = priorityValue;
+
+        item.appendChild(priorityLabel);
+        item.appendChild(title);
+        item.appendChild(badge);
+        summary.appendChild(item);
+      });
+    }
+
+    function renderEventsList(items) {
+      const container = document.getElementById('eventsList');
+      container.innerHTML = '';
+      if (items.length === 0) {
+        container.innerHTML = '<div class="event">その日の予定はありません</div>';
+        return;
+      }
+
+      items.forEach(({ event, idx }) => {
+        const el = document.createElement('div');
+        el.className = 'event' + (event.done ? ' done' : '');
+        const header = document.createElement('div');
+        header.innerHTML = `<strong>${event.date} ${event.time}</strong><div>${event.title}</div><div style="margin-top:6px;font-size:12px;color:#475569;">priority: ${event.priority || 'normal'}</div>`;
+        el.appendChild(header);
+
+        const priorityRow = document.createElement('div');
+        priorityRow.style.display = 'flex';
+        priorityRow.style.flexWrap = 'wrap';
+        priorityRow.style.gap = '6px';
+        priorityRow.style.marginTop = '10px';
+
+        ['urgent', 'high', 'normal', 'low'].forEach((level) => {
+          const btn = document.createElement('button');
+          btn.textContent = level;
+          btn.style.fontSize = '12px';
+          btn.style.padding = '5px 8px';
+          btn.style.borderRadius = '6px';
+          btn.style.border = '1px solid #d1d5db';
+          btn.style.cursor = 'pointer';
+          if (event.priority === level) {
+            btn.style.background = '#3b82f6';
+            btn.style.color = '#ffffff';
+          } else {
+            btn.style.background = '#f8fafc';
+            btn.style.color = '#111827';
+          }
+          btn.addEventListener('click', async () => {
+            if (typeof window.myEvents?.setEventPriority === 'function') {
+              await window.myEvents.setEventPriority(event.id || idx, level);
+              refresh();
+            }
+          });
+          priorityRow.appendChild(btn);
+        });
+
+        el.appendChild(priorityRow);
+        container.appendChild(el);
+      });
+    }
+
+    let selectedDate = null;
+
+    function refresh() {
+      renderCurrent();
+      if (selectedDate) {
+        renderDayEvents(selectedDate);
+      }
+    }
+
+    function renderDayEvents(dateStr) {
+      selectedDate = dateStr;
+      const allEvents = getEvents();
+      const dayItems = allEvents
+        .map((event, idx) => ({ event, idx }))
+        .filter(({ event }) => event.date === dateStr);
+      renderEventsList(sortedEventItemsByPriority(dayItems));
+    }
+
     function renderCalendar(year, month) {
       const first = new Date(year, month, 1);
       const startDay = first.getDay();
@@ -210,6 +366,7 @@
       const events = getEvents();
       const eventMap = {};
       events.forEach(e => { if (e && e.date) { eventMap[e.date] = eventMap[e.date] || []; eventMap[e.date].push(e); } });
+      renderPrioritySummary(events);
 
       let day = 1 - startDay;
       for (let week = 0; week < 6; week++) {
@@ -220,6 +377,7 @@
           td.style.padding = '8px';
           td.style.height = '80px';
           td.style.verticalAlign = 'top';
+          td.style.position = 'relative';
           if (day < 1 || day > days) {
             td.innerHTML = '';
             td.style.background = 'transparent';
@@ -231,31 +389,26 @@
             td.appendChild(h);
 
             if (eventMap[dateStr]) {
+              const sortedDayEvents = sortedEventsByPriority(eventMap[dateStr]);
               const marker = document.createElement('div');
-              marker.textContent = `${eventMap[dateStr].length} 件`; 
+              const count = sortedDayEvents.length;
+              const topPriority = sortedDayEvents[0];
+              marker.textContent = `${count} 件` + (topPriority ? ` • ${topPriority.priority || 'normal'}` : '');
               marker.style.marginTop = '6px';
               marker.style.fontSize = '12px';
+              marker.style.display = 'inline-flex';
+              marker.style.alignItems = 'center';
+              marker.style.gap = '6px';
               marker.style.background = '#3b82f6';
               marker.style.color = '#fff';
-              marker.style.display = 'inline-block';
-              marker.style.padding = '2px 6px';
-              marker.style.borderRadius = '12px';
+              marker.style.padding = '2px 8px';
+              marker.style.borderRadius = '999px';
               td.appendChild(marker);
             }
 
             td.style.cursor = 'pointer';
             td.addEventListener('click', () => {
-              // filter event list to that date
-              const list = getEvents().filter(ev => ev.date === dateStr);
-              const container = document.getElementById('eventsList');
-              container.innerHTML = '';
-              if (list.length === 0) container.innerHTML = '<div class="event">その日の予定はありません</div>';
-              list.forEach((event, idx) => {
-                const el = document.createElement('div');
-                el.className = 'event' + (event.done ? ' done' : '');
-                el.innerHTML = `<strong>${event.date} ${event.time}</strong><div>${event.title}</div>`;
-                container.appendChild(el);
-              });
+              renderDayEvents(dateStr);
             });
           }
           tr.appendChild(td);

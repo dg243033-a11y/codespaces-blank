@@ -278,8 +278,9 @@ function generatePieChart(date = null) {
   const activities = loadActivities();
   const targetDate = date ? getJSTDate(new Date(date)) : getJSTDate(new Date());
   const dayActivities = activities[targetDate] || [];
+  const sleepMinutes = getSleepMinutesForDate(targetDate);
 
-  if (dayActivities.length === 0) {
+  if (dayActivities.length === 0 && sleepMinutes === 0) {
     return `<html><body><p>No activities recorded for ${targetDate}</p></body></html>`;
   }
 
@@ -291,6 +292,16 @@ function generatePieChart(date = null) {
     }
     categoryMap[activity.category] += activity.duration;
   });
+
+  // Add sleep duration from actual sleep sessions if not already present.
+  if (sleepMinutes > 0 && !categoryMap['Sleep']) {
+    categoryMap['Sleep'] = sleepMinutes;
+  }
+
+  const totalTrackedMinutes = Object.values(categoryMap).reduce((sum, value) => sum + value, 0);
+  if (totalTrackedMinutes > 0 && totalTrackedMinutes < 24 * 60) {
+    categoryMap['Other'] = (categoryMap['Other'] || 0) + (24 * 60 - totalTrackedMinutes);
+  }
 
   const categories = Object.keys(categoryMap);
   const durations = Object.values(categoryMap);

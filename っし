@@ -56,16 +56,19 @@
     function renderEvents() {
         ensureUI();
         const keyword = document.getElementById('search')?.value || '';
-        const list = events.filter(e => e.title.includes(keyword));
+        const list = events
+            .map((event, idx) => ({ event, idx }))
+            .filter(({ event }) => event.title.includes(keyword));
         const container = document.getElementById('eventsList');
         container.innerHTML = '';
 
-        list.forEach((event, idx) => {
+        list.forEach(({ event, idx }) => {
             const el = document.createElement('div');
             el.className = 'event' + (event.done ? ' done' : '');
             el.innerHTML = `
                 <strong>${event.date} ${event.time}</strong>
                 <div>${escapeHtml(event.title)}</div>
+                <div style="margin-top:6px;font-size:12px;color:#475569;">priority: ${event.priority || 'normal'}</div>
             `;
 
             const cb = document.createElement('input');
@@ -84,6 +87,27 @@
             delBtn.addEventListener('click', async () => { events.splice(idx,1); await saveData(); renderEvents(); });
             el.appendChild(delBtn);
 
+            const priorities = ['urgent', 'high', 'normal', 'low'];
+            const priorityRow = document.createElement('div');
+            priorityRow.style.display = 'flex';
+            priorityRow.style.gap = '6px';
+            priorityRow.style.flexWrap = 'wrap';
+            priorityRow.style.marginTop = '10px';
+
+            priorities.forEach((level) => {
+                const btn = document.createElement('button');
+                btn.textContent = level;
+                btn.style.fontSize = '12px';
+                btn.style.padding = '5px 8px';
+                btn.style.borderRadius = '6px';
+                btn.style.border = '1px solid #d1d5db';
+                btn.style.background = event.priority === level ? '#3b82f6' : '#f8fafc';
+                btn.style.color = event.priority === level ? '#fff' : '#111827';
+                btn.addEventListener('click', async () => { await setEventPriority(idx, level); });
+                priorityRow.appendChild(btn);
+            });
+
+            el.appendChild(priorityRow);
             container.appendChild(el);
         });
     }
@@ -97,13 +121,15 @@
             .replace(/'/g, '&#39;');
     }
 
-    async function editEvent(index) {
-        const ev = events[index];
+    async function editEvent(indexOrId) {
+        const idx = findEventIndex(indexOrId);
+        if (idx < 0) return;
+        const ev = events[idx];
         const newDate = prompt('日付', ev.date);
         const newTime = prompt('時間', ev.time);
         const newTitle = prompt('予定名', ev.title);
         if (newDate && newTime && newTitle) {
-            events[index] = { ...ev, date: newDate, time: newTime, title: newTitle };
+            events[idx] = { ...ev, date: newDate, time: newTime, title: newTitle };
             await saveData();
             renderEvents();
         }
@@ -115,8 +141,41 @@
         renderEvents();
     }
 
-    async function addEvent(date, time, title) {
-        events.push({ date, time, title, done: false });
+    function generateId() {
+        return 'evt_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+    }
+
+    function ensureEventIds() {
+        let updated = false;
+        events = events.map(ev => {
+            if (!ev.id) {
+                updated = true;
+                return { ...ev, id: generateId() };
+            }
+            return ev;
+        });
+        if (updated) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
+        }
+    }
+
+    function findEventIndex(key) {
+        if (typeof key === 'number') {
+            return key;
+        }
+        return events.findIndex(ev => ev.id === key);
+    }
+
+    async function setEventPriority(indexOrId, priority = 'normal') {
+        const idx = findEventIndex(indexOrId);
+        if (idx < 0 || !events[idx]) return;
+        events[idx].priority = priority || 'normal';
+        await saveData();
+        renderEvents();
+    }
+
+    async function addEvent(date, time, title, priority = 'normal') {
+        events.push({ id: generateId(), date, time, title, done: false, priority: priority || 'normal' });
         await saveData();
         renderEvents();
     }
@@ -157,6 +216,7 @@
         addEvent,
         editEvent,
         toggleDone,
+        setEventPriority,
         renderEvents,
         recordSleep
     };
@@ -179,6 +239,7 @@
                 // ignore
             }
         }
+        ensureEventIds();
         document.addEventListener('DOMContentLoaded', renderEvents);
     })();
 })();
