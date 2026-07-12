@@ -173,6 +173,46 @@ function getSleepMinutesForDate(dateString) {
   return total;
 }
 
+function exportSleepSessions(outputFile = null) {
+  const sessions = loadSleepSessions();
+  const filename = outputFile ? path.resolve(outputFile) : path.join(__dirname, 'sleep_sessions_sync.json');
+  fs.writeFileSync(filename, JSON.stringify(sessions, null, 2));
+  return filename;
+}
+
+function importSleepSessions(inputFile) {
+  if (!inputFile) return null;
+  const filename = path.resolve(inputFile);
+  if (!fs.existsSync(filename)) return null;
+
+  try {
+    const imported = JSON.parse(fs.readFileSync(filename, 'utf8'));
+    if (!Array.isArray(imported)) return null;
+
+    const sessions = loadSleepSessions();
+    const existingKeys = new Set(sessions.map((s) => `${s.start || ''}|${s.end || ''}`));
+    let added = 0;
+
+    imported.forEach((session) => {
+      if (!session || typeof session.start !== 'string') return;
+      const key = `${session.start}|${session.end || ''}`;
+      if (!existingKeys.has(key)) {
+        existingKeys.add(key);
+        sessions.push(session);
+        added += 1;
+      }
+    });
+
+    if (added > 0) {
+      saveSleepSessions(sessions);
+    }
+
+    return { added, total: sessions.length, filepath: filename };
+  } catch (e) {
+    return null;
+  }
+}
+
 // Save activities to file
 function saveActivities(activities) {
   fs.writeFileSync(ACTIVITIES_FILE, JSON.stringify(activities, null, 2));
@@ -647,5 +687,7 @@ module.exports = {
   addPendingSleep,
   markPendingSleepPhoneUsed,
   clearPendingSleep,
+  exportSleepSessions,
+  importSleepSessions,
   getWeeklySleepTotals
 };

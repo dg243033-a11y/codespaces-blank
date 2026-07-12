@@ -4,7 +4,8 @@ const path = require('path');
 const { spawn, spawnSync } = require('child_process');
 const cron = require('node-cron');
 const { logActivity, savePieChart, saveMonthlyCalendar, getTodayActivities, formatJST,
-  startSleepSession, stopSleepSession, addPendingSleep, markPendingSleepPhoneUsed, clearPendingSleep, getWeeklySleepTotals, loadSleepSessions } = require('./activity.js');
+  startSleepSession, stopSleepSession, addPendingSleep, markPendingSleepPhoneUsed, clearPendingSleep, getWeeklySleepTotals, loadSleepSessions,
+  exportSleepSessions, importSleepSessions } = require('./activity.js');
 
 let say;
 try {
@@ -528,6 +529,8 @@ if (require.main === module) {
   let voice = null;
   let music = null;
   let sleep = null;
+  let sleepSync = undefined;
+  let sleepSyncImport = null;
   let bathTime = null;
   let volume = DEFAULT_VOLUME;
   let priority = 'normal';
@@ -603,6 +606,18 @@ if (require.main === module) {
       if (args[i + 1] && !args[i + 1].startsWith('--')) {
         calendarTarget = args[++i];
       }
+    } else if (arg.startsWith('--sleep-sync=')) {
+      sleepSync = arg.slice('--sleep-sync='.length) || '';
+    } else if (arg === '--sleep-sync') {
+      if (args[i + 1] && !args[i + 1].startsWith('--')) {
+        sleepSync = args[++i];
+      } else {
+        sleepSync = '';
+      }
+    } else if (arg.startsWith('--sleep-sync-import=')) {
+      sleepSyncImport = arg.slice('--sleep-sync-import='.length);
+    } else if (arg === '--sleep-sync-import' && args[i + 1]) {
+      sleepSyncImport = args[++i];
     } else if (arg === '--phone-used') {
       // mark pending sleep as phone-used
       const ok = markPendingSleepPhoneUsed();
@@ -682,6 +697,19 @@ if (require.main === module) {
   } else if (showCalendar) {
     const calendarFile = saveMonthlyCalendar(null, calendarTarget);
     console.log(`\n🗓️ Open the calendar in your browser: file://${path.resolve(calendarFile)}`);
+  } else if (sleepSyncImport) {
+    const result = importSleepSessions(sleepSyncImport);
+    if (!result) {
+      console.error('❌ SleepSync import failed: file not found or invalid format.');
+    } else {
+      console.log(`✅ Imported ${result.added} sleep sessions from ${result.filepath}. Total sessions: ${result.total}`);
+    }
+    return;
+  } else if (sleepSync !== undefined) {
+    const outputFile = sleepSync || path.join(__dirname, 'sleep_sessions_sync.json');
+    const file = exportSleepSessions(outputFile);
+    console.log(`✅ Sleep sessions exported to: ${file}`);
+    return;
   } else if (sleep) {
     // Pre-checks to avoid conflicts
     if (hasOpenSleepSession()) {

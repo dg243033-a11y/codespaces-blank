@@ -50,6 +50,18 @@ node index.js --sleep 23:00 --music ./healing.wav
 node index.js --stop-sleep
 ```
 
+- 睡眠データをエクスポート（SleepSync）する:
+
+```
+node index.js --sleep-sync
+```
+
+- SleepSyncファイルをインポートする:
+
+```
+node index.js --sleep-sync-import ./sleep_sessions_sync.json
+```
+
 ## Web公開
 
 このプロジェクトには静的ページと、イベント保存用の簡易 Node サーバーが含まれています。
