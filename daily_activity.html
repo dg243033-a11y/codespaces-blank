@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Daily Activity (2026-06-15)</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Hiragino Kaku Gothic ProN', 'メイリオ', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background: #ffffff;
+      color: #1f2937;
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+      padding: 32px;
+      max-width: 600px;
+      width: 100%;
+    }
+    h1 {
+      text-align: center;
+      color: #111827;
+      margin-bottom: 24px;
+      font-size: 24px;
+      font-weight: 600;
+      letter-spacing: -0.5px;
+    }
+    .chart-wrapper {
+      position: relative;
+      height: 400px;
+      margin-bottom: 28px;
+      background: #f9fafb;
+      border-radius: 10px;
+      padding: 16px;
+      border: 1px solid #e5e7eb;
+    }
+    .stats {
+      background: #f9fafb;
+      padding: 18px;
+      border-radius: 10px;
+      border: 1px solid #e5e7eb;
+      margin-top: 20px;
+    }
+    .stat-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .stat-item:last-child {
+      border-bottom: none;
+    }
+    .stat-label {
+      font-weight: 500;
+      color: #4b5563;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .stat-value {
+      font-weight: 600;
+      color: #111827;
+    }
+    .total {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 2px solid #3b82f6;
+      font-size: 16px;
+      color: #111827;
+      font-weight: 600;
+    }
+    @media (prefers-color-scheme: dark) {
+      body {
+        background: #1f2937;
+        color: #f3f4f6;
+      }
+      .container {
+        background: #374151;
+        border: 1px solid #4b5563;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+      }
+      h1 {
+        color: #f9fafb;
+      }
+      .chart-wrapper {
+        background: #1f2937;
+        border: 1px solid #4b5563;
+      }
+      .stats {
+        background: #1f2937;
+        border: 1px solid #4b5563;
+      }
+      .stat-item {
+        border-bottom: 1px solid #4b5563;
+        color: #e5e7eb;
+      }
+      .stat-item:last-child {
+        border-bottom: none;
+      }
+      .stat-label {
+        color: #d1d5db;
+      }
+      .stat-value {
+        color: #f9fafb;
+      }
+      .total {
+        border-top: 2px solid #60a5fa;
+        color: #f9fafb;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎯 1日の活動 (2026-06-15)</h1>
+    <div class="chart-wrapper">
+      <canvas id="pieChart"></canvas>
+    </div>
+    <div class="stats">
+      
+        <div class="stat-item">
+          <span class="stat-label">
+            <span style="display: inline-block; width: 12px; height: 12px; background: #FF6384; border-radius: 2px; margin-right: 8px;"></span>
+            Sleep
+          </span>
+          <span class="stat-value">480分</span>
+        </div>
+      
+        <div class="stat-item">
+          <span class="stat-label">
+            <span style="display: inline-block; width: 12px; height: 12px; background: #36A2EB; border-radius: 2px; margin-right: 8px;"></span>
+            Work
+          </span>
+          <span class="stat-value">480分</span>
+        </div>
+      
+        <div class="stat-item">
+          <span class="stat-label">
+            <span style="display: inline-block; width: 12px; height: 12px; background: #FFCE56; border-radius: 2px; margin-right: 8px;"></span>
+            Relax
+          </span>
+          <span class="stat-value">240分</span>
+        </div>
+      
+        <div class="stat-item">
+          <span class="stat-label">
+            <span style="display: inline-block; width: 12px; height: 12px; background: #4BC0C0; border-radius: 2px; margin-right: 8px;"></span>
+            Meals
+          </span>
+          <span class="stat-value">120分</span>
+        </div>
+      
+      <div class="stat-item total">
+        <span class="stat-label">合計</span>
+        <span class="stat-value">1320分 (22.0時間)</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const ctx = document.getElementById('pieChart').getContext('2d');
+    const pieChart = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: ["Sleep","Work","Relax","Meals"],
+        datasets: [{
+          data: [480,480,240,120],
+          backgroundColor: ["#FF6384","#36A2EB","#FFCE56","#4BC0C0"],
+          borderColor: '#fff',
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: {
+              usePointStyle: true,
+              padding: 15,
+              font: {
+                size: 14
+              }
+            }
+          }
+        }
+      }
+    });
+  </script>
+</body>
+</html>

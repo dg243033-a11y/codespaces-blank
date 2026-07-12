@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>イベントカレンダー</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Hiragino Kaku Gothic ProN', 'メイリオ', sans-serif;
+      background: #ffffff;
+      color: #1f2937;
+      line-height: 1.6;
+      padding: 20px;
+      min-height: 100vh;
+    }
+    .wrapper {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    h1 {
+      text-align: center;
+      font-size: 28px;
+      color: #111827;
+      margin-bottom: 30px;
+      font-weight: 600;
+      letter-spacing: -0.5px;
+    }
+    #controls {
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 24px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+    input, button {
+      font-family: inherit;
+      font-size: 14px;
+      border-radius: 6px;
+      border: 1px solid #d1d5db;
+      padding: 8px 12px;
+      transition: all 0.2s ease;
+    }
+    input {
+      background: white;
+      color: #1f2937;
+    }
+    input::placeholder {
+      color: #9ca3af;
+    }
+    input:focus {
+      outline: none;
+      border-color: #3b82f6;
+      background: white;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    button#add {
+      background: #3b82f6;
+      color: white;
+      border: none;
+      font-weight: 500;
+      cursor: pointer;
+      padding: 8px 18px;
+    }
+    button#add:hover {
+      background: #2563eb;
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+    button#add:active {
+      transform: translateY(1px);
+    }
+    #eventsList {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .event {
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 14px;
+      transition: all 0.2s ease;
+    }
+    .event:hover {
+      border-color: #3b82f6;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+    .event.done {
+      opacity: 0.55;
+      text-decoration: line-through;
+      background: #f9fafb;
+    }
+    @media (prefers-color-scheme: dark) {
+      body {
+        background: #1f2937;
+        color: #f3f4f6;
+      }
+      h1 {
+        color: #f9fafb;
+      }
+      #controls {
+        background: #374151;
+        border: 1px solid #4b5563;
+      }
+      input {
+        background: #1f2937;
+        color: #f3f4f6;
+        border: 1px solid #4b5563;
+      }
+      input::placeholder {
+        color: #6b7280;
+      }
+      input:focus {
+        border-color: #60a5fa;
+        background: #1f2937;
+        box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1);
+      }
+      button#add {
+        background: #3b82f6;
+      }
+      button#add:hover {
+        background: #2563eb;
+      }
+      .event {
+        background: #374151;
+        border: 1px solid #4b5563;
+        color: #f3f4f6;
+      }
+      .event:hover {
+        border-color: #60a5fa;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      }
+      .event.done {
+        background: #1f2937;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <h1>📅 イベントカレンダー</h1>
+  <div id="controls">
+    <input id="username" type="text" placeholder="ユーザー名(任意)" style="width:140px">
+    <input id="date" type="date"> 
+    <input id="time" type="time"> 
+    <input id="title" type="text" placeholder="予定名"> 
+    <button id="add">追加</button>
+  </div>
+
+  <div id="eventsList"></div>
+  </div>
+
+  <script src="っし"></script>
+  <script>
+    document.getElementById('add').addEventListener('click', async () => {
+      const d = document.getElementById('date').value;
+      const t = document.getElementById('time').value;
+      const title = document.getElementById('title').value;
+      if (!d || !t || !title) return alert('日付・時間・タイトルを入力してください');
+      await window.myEvents.addEvent(d, t, title);
+    });
+
+    // expose getAll for potential debugging
+    if (!window.myEvents._getAll) {
+      window.myEvents._getAll = function() { 
+        try { return JSON.parse(localStorage.getItem('events') || '[]'); } catch(e){return [];} 
+      };
+    }
+
+    // Pre-fill username from URL ?user=...
+    const params = new URLSearchParams(location.search);
+    const user = params.get('user');
+    if (user) document.getElementById('username').value = user;
+  </script>
+</body>
+</html>

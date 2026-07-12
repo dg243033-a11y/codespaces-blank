@@ -1,0 +1,13 @@
+{
+  "name": "simple-notifier",
+  "version": "0.0.1",
+  "main": "index.js",
+  "scripts": {
+    "demo": "node index.js now 3000",
+    "start": "node events-server.js"
+  },
+  "dependencies": {
+    "say": "^0.16.0",
+    "node-cron": "^3.0.3"
+  }
+}

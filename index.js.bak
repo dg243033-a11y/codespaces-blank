@@ -1,0 +1,269 @@
+const MAX_TIMEOUT = 2147483647;
+const fs = require('fs');
+const path = require('path');
+const { spawn } = require('child_process');
+const cron = require('node-cron');
+const { logActivity, savePieChart, getTodayActivities, formatJST } = require('./activity.js');
+
+let say;
+try {
+  say = require('say');
+} catch (error) {
+  say = null;
+}
+
+const activeJobs = [];
+
+function safeSetTimeout(ms, cb) {
+  if (ms <= 0) return setTimeout(cb, 0);
+  if (ms > MAX_TIMEOUT) {
+    // schedule in chunks
+    return setTimeout(() => safeSetTimeout(ms - MAX_TIMEOUT, cb), MAX_TIMEOUT);
+  }
+  return setTimeout(cb, ms);
+}
+
+function parseDateTime(dateStr, timeStr) {
+  if (dateStr === 'now') {
+    const offsetMs = Number(timeStr) || 3000;
+    return new Date(Date.now() + offsetMs);
+  }
+
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const tParts = (timeStr || '00:00:00').split(':').map(Number);
+  const hh = tParts[0] || 0;
+  const mm = tParts[1] || 0;
+  const ss = tParts[2] || 0;
+  return new Date(y, (m || 1) - 1, d || 1, hh, mm, ss);
+}
+
+function speakNotification(message, voice = null, speed = 1) {
+  if (!say) {
+    console.log('ℹ️ Voice support unavailable: install "say" or run in a supported environment.');
+    return;
+  }
+
+  try {
+    say.speak(message, voice || undefined, speed, (err) => {
+      if (err) {
+        const errText = err && err.message ? err.message : String(err);
+        console.error('🔈 Voice error:', errText);
+        if (errText.includes('spawn') || errText.includes('ENOENT')) {
+          console.error('🔧 TTS binary not found. Use a supported TTS engine or remove --voice.');
+        }
+      }
+    });
+  } catch (error) {
+    const errText = error && error.message ? error.message : String(error);
+    console.error('🔈 Voice failed:', errText);
+    if (errText.includes('spawn') || errText.includes('ENOENT')) {
+      console.error('🔧 TTS binary not found. Use a supported TTS engine or remove --voice.');
+    }
+  }
+}
+
+function sleepReminder(bedtime, music = null, voice = null) {
+  // Parse bedtime format HH:MM
+  const [hh, mm] = bedtime.split(':').map(Number);
+  if (isNaN(hh) || isNaN(mm) || hh < 0 || hh > 23 || mm < 0 || mm > 59) {
+    console.error('Invalid bedtime format. Use HH:MM (e.g., 23:00)');
+    return null;
+  }
+
+  // Schedule cron job: run every day at specified time
+  const cronExpression = `${mm} ${hh} * * *`;
+  const task = bedtime === 'stop' ? null : cron.schedule(cronExpression, () => {
+    const now = new Date();
+    console.log(`💤 [${now.toLocaleTimeString()}] Bedtime reminder: It's ${bedtime} - Time to sleep!`);
+    
+    if (music) {
+      playMusicNotification(music);
+    } else {
+      speakNotification(`It's ${bedtime}. Time to sleep!`, voice);
+    }
+  }, {
+    runOnInit: false
+  });
+
+  if (task) {
+    activeJobs.push({ task, bedtime });
+    console.log(`✅ Sleep reminder scheduled for ${bedtime} every day`);
+    return task;
+  }
+  return null;
+}
+
+function stopSleepReminder() {
+  if (activeJobs.length === 0) {
+    console.log('No active sleep reminders.');
+    return;
+  }
+  
+  activeJobs.forEach(({ task, bedtime }) => {
+    task.stop();
+    console.log(`⏹️  Stopped sleep reminder for ${bedtime}`);
+  });
+  activeJobs.length = 0;
+}
+
+function playMusicNotification(musicFile) {
+  if (!musicFile) {
+    console.log('ℹ️ No music file specified.');
+    return;
+  }
+
+  const filepath = path.resolve(musicFile);
+  if (!fs.existsSync(filepath)) {
+    console.error(`🎵 Music file not found: ${filepath}`);
+    return;
+  }
+
+  console.log(`🎵 Playing: ${path.basename(filepath)}`);
+
+  // Try various audio players in order of preference
+  const players = [
+    ['ffplay', ['-nodisp', '-autoexit', filepath]],
+    ['aplay', [filepath]],
+    ['paplay', [filepath]],
+    ['mplayer', [filepath]],
+    ['mpg123', [filepath]]
+  ];
+
+  const tryNextPlayer = (index) => {
+    if (index >= players.length) {
+      console.error('🎵 No audio player found. Install ffmpeg, alsa-utils, or pulseaudio.');
+      return;
+    }
+
+    const [player, args] = players[index];
+    try {
+      const proc = spawn(player, args, {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        detached: false,
+        timeout: 60000
+      });
+
+      proc.on('error', (err) => {
+        if (err.code === 'ENOENT') {
+          tryNextPlayer(index + 1);
+        } else {
+          console.error(`🎵 Audio error (${player}):`, err.message);
+        }
+      });
+
+      proc.on('exit', (code) => {
+        if (code !== 0 && code !== null) {
+          console.error(`🎵 ${player} exited with code ${code}`);
+        }
+      });
+    } catch (error) {
+      tryNextPlayer(index + 1);
+    }
+  };
+
+  tryNextPlayer(0);
+}
+
+function scheduleNotification(dateStr, timeStr, task, voice = null, music = null) {
+  const target = parseDateTime(dateStr, timeStr);
+  const now = new Date();
+  const ms = target - now;
+  if (ms <= 0) {
+    console.log(`⚠️  指定時刻は過去です: ${target.toString()}`);
+    return null;
+  }
+  console.log(`Scheduled: ${task} at ${target.toString()} (in ${Math.round(ms / 1000)}s)`);
+  safeSetTimeout(ms, () => {
+    console.log(`🔔 Notification: ${task} — ${target.toLocaleString()}`);
+    if (music) {
+      playMusicNotification(music);
+    } else {
+      speakNotification(task, voice);
+    }
+  });
+  return ms;
+}
+
+function demoSoon() {
+  const d = new Date(Date.now() + 3000);
+  const date = d.toISOString().slice(0,10);
+  const time = d.toTimeString().slice(0,8);
+  console.log('Demo scheduling (3s)…');
+  scheduleNotification(date, time, 'Demo task');
+}
+
+if (require.main === module) {
+  const args = process.argv.slice(2);
+  let voice = null;
+  let music = null;
+  let sleep = null;
+    let logActivityCmd = null;
+    let showChart = false;
+  const positional = [];
+
+  for (let i = 0; i < args.length; i += 1) {
+    const arg = args[i];
+    if (arg.startsWith('--voice=')) {
+      voice = arg.slice('--voice='.length);
+    } else if (arg === '--voice' && args[i + 1]) {
+      voice = args[++i];
+    } else if (arg.startsWith('--music=')) {
+      music = arg.slice('--music='.length);
+    } else if (arg === '--music' && args[i + 1]) {
+      music = args[++i];
+    } else if (arg.startsWith('--sleep=')) {
+      sleep = arg.slice('--sleep='.length);
+    } else if (arg === '--sleep' && args[i + 1]) {
+      sleep = args[++i];
+    } else if (arg === '--stop-sleep') {
+      stopSleepReminder();
+          } else if (arg === '--log-activity' && args[i + 1] && args[i + 2]) {
+            // --log-activity <category> <minutes> [details...]
+            logActivityCmd = {
+              category: args[++i],
+              duration: Number(args[++i]),
+              details: args.slice(i + 1).join(' ')
+            };
+            break;
+          } else if (arg === '--show-chart') {
+            showChart = true;
+      return;
+    } else {
+      positional.push(arg);
+    }
+  }
+
+  if (sleep) {
+    // Sleep reminder mode
+    sleepReminder(sleep, music, voice);
+    // Keep process running
+    console.log('Press Ctrl+C to stop...');
+  } else if (positional.length === 0) {
+      if (logActivityCmd) {
+        logActivity(logActivityCmd.category, logActivityCmd.duration, logActivityCmd.details);
+      } else if (showChart) {
+        const chartFile = savePieChart();
+        console.log(`\n📊 Open the pie chart in your browser: file://${path.resolve(chartFile)}`);
+      } else if (sleep) {
+        // Sleep reminder mode
+        sleepReminder(sleep, music, voice);
+        // Keep process running
+        console.log('Press Ctrl+C to stop...');
+      } else if (positional.length === 0) {
+    console.log('Usage: node index.js <YYYY-MM-DD|now> <HH:MM[:SS]|ms-for-now> <task...> [--voice <voice>] [--music <file>]');
+    console.log('Example: node index.js 2026-06-16 14:30 "Meeting" --voice "kyoko"');
+    console.log('With music: node index.js now 5000 "Break time" --music ./music.mp3');
+    console.log('Sleep reminder (daily): node index.js --sleep 23:00 --music ./healing.wav');
+    console.log('Stop sleep reminder: node index.js --stop-sleep');
+    console.log('Demo: node index.js now 3000');
+  } else if (positional[0] === 'now') {
+    const ms = Number(positional[1]) || 3000;
+    scheduleNotification('now', String(ms), positional.slice(2).join(' ') || 'Immediate task', voice, music);
+  } else if (positional.length >= 3) {
+    scheduleNotification(positional[0], positional[1], positional.slice(2).join(' '), voice, music);
+  } else {
+    console.log('Invalid arguments. See usage.');
+  }
+}
+
+module.exports = { scheduleNotification, sleepReminder, stopSleepReminder, demoSoon };

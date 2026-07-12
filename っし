@@ -1,0 +1,184 @@
+// Simple events manager script
+(() => {
+    const STORAGE_KEY = 'events';
+    let events = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    let notified = [];
+
+    async function getCurrentUser() {
+        // prefer username input on page
+        try {
+            const el = document.getElementById('username');
+            if (el && el.value) return el.value;
+        } catch (e) {}
+        // fallback to URL param
+        try {
+            const params = new URLSearchParams(location.search);
+            const u = params.get('user');
+            if (u) return u;
+        } catch (e) {}
+        return null;
+    }
+
+    async function saveData() {
+        // Try server save first
+        try {
+            if (location.protocol.startsWith('http')) {
+                const user = await getCurrentUser();
+                const url = user ? '/events?user=' + encodeURIComponent(user) : '/events';
+                await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(events) });
+                // still update localStorage as fallback
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
+                return;
+            }
+        } catch (e) {
+            // ignore server errors, fallback to localStorage
+        }
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
+    }
+
+    function ensureUI() {
+        if (!document.getElementById('search')) {
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.id = 'search';
+            input.placeholder = '予定検索';
+            input.addEventListener('input', renderEvents);
+            document.body.insertBefore(input, document.body.firstChild);
+        }
+
+        if (!document.getElementById('eventsList')) {
+            const div = document.createElement('div');
+            div.id = 'eventsList';
+            document.body.appendChild(div);
+        }
+    }
+
+    function renderEvents() {
+        ensureUI();
+        const keyword = document.getElementById('search')?.value || '';
+        const list = events.filter(e => e.title.includes(keyword));
+        const container = document.getElementById('eventsList');
+        container.innerHTML = '';
+
+        list.forEach((event, idx) => {
+            const el = document.createElement('div');
+            el.className = 'event' + (event.done ? ' done' : '');
+            el.innerHTML = `
+                <strong>${event.date} ${event.time}</strong>
+                <div>${escapeHtml(event.title)}</div>
+            `;
+
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.checked = !!event.done;
+            cb.addEventListener('click', async () => { await toggleDone(idx); });
+            el.prepend(cb);
+
+            const editBtn = document.createElement('button');
+            editBtn.textContent = '編集';
+            editBtn.addEventListener('click', async () => { await editEvent(idx); });
+            el.appendChild(editBtn);
+
+            const delBtn = document.createElement('button');
+            delBtn.textContent = '削除';
+            delBtn.addEventListener('click', async () => { events.splice(idx,1); await saveData(); renderEvents(); });
+            el.appendChild(delBtn);
+
+            container.appendChild(el);
+        });
+    }
+
+    function escapeHtml(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    async function editEvent(index) {
+        const ev = events[index];
+        const newDate = prompt('日付', ev.date);
+        const newTime = prompt('時間', ev.time);
+        const newTitle = prompt('予定名', ev.title);
+        if (newDate && newTime && newTitle) {
+            events[index] = { ...ev, date: newDate, time: newTime, title: newTitle };
+            await saveData();
+            renderEvents();
+        }
+    }
+
+    async function toggleDone(index) {
+        events[index].done = !events[index].done;
+        await saveData();
+        renderEvents();
+    }
+
+    async function addEvent(date, time, title) {
+        events.push({ date, time, title, done: false });
+        await saveData();
+        renderEvents();
+    }
+
+    function checkNotifications() {
+        if (!('Notification' in window)) return;
+        const now = new Date();
+        const date = now.toISOString().split('T')[0];
+        const time = now.toTimeString().slice(0,5);
+
+        events.forEach(event => {
+            const key = event.date + '|' + event.time + '|' + event.title;
+            if (event.date === date && event.time === time && !notified.includes(key)) {
+                if (Notification.permission === 'granted') {
+                    new Notification('予定の時間です', { body: event.title });
+                } else if (Notification.permission !== 'denied') {
+                    Notification.requestPermission().then(perm => {
+                        if (perm === 'granted') new Notification('予定の時間です', { body: event.title });
+                    });
+                }
+                notified.push(key);
+            }
+        });
+    }
+
+    setInterval(checkNotifications, 30000);
+
+    // sleepHistory helper
+    function recordSleep(hours, minutes) {
+        const key = 'sleepHistory';
+        const sleepHistory = JSON.parse(localStorage.getItem(key) || '[]');
+        sleepHistory.push({ date: new Date().toLocaleDateString(), result: `${hours}時間${minutes}分` });
+        localStorage.setItem(key, JSON.stringify(sleepHistory));
+    }
+
+    // expose some functions globally for simple usage from HTML
+    window.myEvents = {
+        addEvent,
+        editEvent,
+        toggleDone,
+        renderEvents,
+        recordSleep
+    };
+
+    // initial load from server if available, then render
+    (async () => {
+        if (location.protocol.startsWith('http')) {
+            try {
+                const user = await getCurrentUser();
+                const url = user ? '/events?user=' + encodeURIComponent(user) : '/events';
+                const res = await fetch(url);
+                if (res.ok) {
+                    const serverEvents = await res.json();
+                    if (Array.isArray(serverEvents) && serverEvents.length) {
+                        events = serverEvents;
+                        localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
+                    }
+                }
+            } catch (e) {
+                // ignore
+            }
+        }
+        document.addEventListener('DOMContentLoaded', renderEvents);
+    })();
+})();

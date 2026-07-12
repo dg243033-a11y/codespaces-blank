@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>スケジュール管理アプリ</title>
+
+<style>
+body{
+    font-family:sans-serif;
+    background:#f5f7fb;
+    margin:20px;
+}
+
+.container{
+    max-width:700px;
+    margin:auto;
+}
+
+.card{
+    background:white;
+    padding:15px;
+    margin-bottom:15px;
+    border-radius:15px;
+    box-shadow:0 2px 8px rgba(0,0,0,0.1);
+}
+
+input,button{
+    padding:10px;
+    margin:5px;
+}
+
+button{
+    cursor:pointer;
+}
+
+.event{
+    padding:10px;
+    margin-top:5px;
+    background:#e8f0ff;
+    border-radius:10px;
+}
+
+.sleep{
+    background:#e7e0ff;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>📅 スケジュール管理アプリ</h1>
+
+<div class="card">
+<h2>予定追加</h2>
+
+<input type="date" id="date">
+<input type="time" id="time">
+<input type="text" id="title" placeholder="予定名">
+
+<button onclick="addEvent()">追加</button>
+</div>
+
+<div class="card">
+<h2>😴 睡眠記録</h2>
+
+<label>就寝</label>
+<input type="time" id="sleepStart">
+
+<label>起床</label>
+<input type="time" id="sleepEnd">
+
+<button onclick="saveSleep()">保存</button>
+
+<p id="sleepResult"></p>
+</div>
+
+<div class="card">
+<h2>予定一覧</h2>
+<div id="events"></div>
+</div>
+
+</div>
+
+<script>
+
+let events =
+JSON.parse(localStorage.getItem("events")) || [];
+
+function saveData(){
+    localStorage.setItem(
+        "events",
+        JSON.stringify(events)
+    );
+}
+
+function addEvent(){
+
+    const date =
+        document.getElementById("date").value;
+
+    const time =
+        document.getElementById("time").value;
+
+    const title =
+        document.getElementById("title").value;
+
+    if(!date || !time || !title){
+        alert("入力してください");
+        return;
+    }
+
+    events.push({
+        date,
+        time,
+        title
+    });
+
+    saveData();
+    renderEvents();
+}
+
+function renderEvents(){
+
+    const area =
+        document.getElementById("events");
+
+    area.innerHTML="";
+
+    events.sort((a,b)=>
+        (a.date+a.time)
+        .localeCompare(b.date+b.time)
+    );
+
+    events.forEach((event,index)=>{
+
+        const div =
+        document.createElement("div");
+
+        div.className="event";
+
+        div.innerHTML=
+        `
+        ${event.date}
+        ${event.time}
+        ${event.title}
+        <button onclick="deleteEvent(${index})">
+        削除
+        </button>
+        `;
+
+        area.appendChild(div);
+    });
+}
+
+function deleteEvent(index){
+
+    events.splice(index,1);
+
+    saveData();
+    renderEvents();
+}
+
+function saveSleep(){
+
+    const start =
+        document.getElementById("sleepStart").value;
+
+    const end =
+        document.getElementById("sleepEnd").value;
+
+    if(!start || !end){
+        return;
+    }
+
+    const s =
+        start.split(":");
+
+    const e =
+        end.split(":");
+
+    let startMin =
+        Number(s[0])*60 + Number(s[1]);
+
+    let endMin =
+        Number(e[0])*60 + Number(e[1]);
+
+    if(endMin < startMin){
+        endMin += 24*60;
+    }
+
+    const total =
+        endMin - startMin;
+
+    const hour =
+        Math.floor(total/60);
+
+    const min =
+        total%60;
+
+    document.getElementById(
+        "sleepResult"
+    ).innerText =
+    `睡眠時間 ${hour}時間${min}分`;
+
+    localStorage.setItem(
+        "sleep",
+        `${hour}時間${min}分`
+    );
+}
+
+if("Notification" in window){
+    Notification.requestPermission();
+}
+
+renderEvents();
+
+</script>
+
+</body>
+</html>

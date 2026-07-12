@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>2026年07月 カレンダー</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Hiragino Kaku Gothic ProN', 'メイリオ', sans-serif;
+      background: #ffffff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+      color: #1f2937;
+    }
+    .calendar {
+      width: 100%;
+      max-width: 900px;
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+      padding: 32px;
+    }
+    h1 {
+      margin: 0 0 24px;
+      text-align: center;
+      color: #111827;
+      font-size: 26px;
+      font-weight: 600;
+      letter-spacing: -0.5px;
+    }
+    .grid {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .grid th,
+    .grid td {
+      border: 1px solid #e5e7eb;
+      width: 14.285%;
+      height: 120px;
+      vertical-align: top;
+      padding: 12px;
+    }
+    .grid th {
+      background: #f9fafb;
+      color: #4b5563;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .day-cell {
+      background: #ffffff;
+      color: #1f2937;
+      transition: all 0.2s ease;
+      border-radius: 8px;
+      padding: 8px;
+    }
+    .day-cell.filled {
+      background: #f0f4f8;
+      box-shadow: inset 0 0 0 1px #e5e7eb;
+    }
+    .day-cell.today {
+      font-weight: 700;
+      background: #eff6ff;
+      border: 2px solid #3b82f6;
+      transform: scale(1.01);
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+    }
+    .day-cell:hover {
+      background: #f9fafb;
+      border: 1px solid #d1d5db;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+    }
+    .day-number {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      color: #111827;
+    }
+    .day-details {
+      font-size: 12px;
+      white-space: pre-wrap;
+      line-height: 1.4;
+      color: #6b7280;
+    }
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-top: 24px;
+      gap: 12px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #f9fafb;
+      padding: 10px 14px;
+      border: 1px solid #e5e7eb;
+      border-radius: 999px;
+      font-size: 13px;
+      color: #4b5563;
+    }
+    .legend-color {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+    }
+    @media (prefers-color-scheme: dark) {
+      body {
+        background: #1f2937;
+        color: #f3f4f6;
+      }
+      .calendar {
+        background: #374151;
+        border: 1px solid #4b5563;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+      }
+      h1 {
+        color: #f9fafb;
+      }
+      .grid th,
+      .grid td {
+        border: 1px solid #4b5563;
+      }
+      .grid th {
+        background: #1f2937;
+        color: #d1d5db;
+      }
+      .day-cell {
+        background: #374151;
+        color: #e5e7eb;
+      }
+      .day-cell.filled {
+        background: #2d3748;
+        box-shadow: inset 0 0 0 1px #4b5563;
+      }
+      .day-cell.today {
+        background: #1e3a5f;
+        border: 2px solid #60a5fa;
+        box-shadow: 0 4px 12px rgba(96, 165, 250, 0.2);
+      }
+      .day-cell:hover {
+        background: #4b5563;
+        border: 1px solid #6b7280;
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+      }
+      .day-number {
+        color: #f9fafb;
+      }
+      .day-details {
+        color: #9ca3af;
+      }
+      .legend-item {
+        background: #1f2937;
+        border: 1px solid #4b5563;
+        color: #d1d5db;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="calendar">
+    <h1>2026年07月 活動カレンダー</h1>
+    <table class="grid">
+      <thead>
+        <tr><th>日</th><th>月</th><th>火</th><th>水</th><th>木</th><th>金</th><th>土</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="empty"></td><td class="empty"></td><td class="empty"></td>
+          <td class="day-cell" style="background:transparent; color:#1e293b;">
+            <div class="day-number">1</div>
+            <div class="day-details"></div>
+          </td>
+          <td class="day-cell" style="background:transparent; color:#1e293b;">
+            <div class="day-number">2</div>
+            <div class="day-details"></div>
+          </td>
+          <td class="day-cell" style="background:transparent; color:#1e293b;">
+            <div class="day-number">3</div>
+            <div class="day-details"></div>
+          </td>
+          <td class="day-cell" style="background:transparent; color:#1e293b;">
+            <div class="day-number">4</div>
+            <div class="day-details"></div>
+          </td></tr><tr>
+          <td class="day-cell" style="background:transparent; color:#1e293b;">
+            <div class="day-number">5</div>
+            <div class="day-details"></div>
+          </td>
+          <td class="day-cell" style="background:transparent; color:#1e293b;">
+            <div class="day-number">6</div>
+            <div class="day-details"></div>
+          </td>
+          <td class="day-cell" style="background:transparent; color:#1e293b;">
+            <div class="day-number">7</div>
+            <div class="day-details"></div>
+          </td>
+          <td class="day-cell" style="background:transparent; color:#1e293b;">
+            <div class="day-number">8</div>
+            <div class="day-details"></div>
+          </td>
+          <td class="day-cell" style="background:transparent; color:#1e293b;">
+            <div class="day-number">9</div>
+            <div class="day-details"></div>
+          </td>
+          <td class="day-cell today" style="background:#1e293b; color:#ffffff; box-shadow: inset 0 0 0 3px #0f172a, inset 0 0 0 1px rgba(255,255,255,0.2);">
+            <div class="day-number">10</div>
+            <div class="day-details"></div>
+          </td>
+          <td class="day-cell" style="background:transparent; color:#1e293b;">
+            <div class="day-number">11</div>
+            <div class="day-details"></div>
+          </td></tr><tr>
+          <td class="day-cell" style="background:transparent; color:#1e293b;">
+            <div class="day-number">12</div>
+            <div class="day-details"></div>
+          </td>
+          <td class="day-cell" style="background:transparent; color:#1e293b;">
+            <div class="day-number">13</div>
+            <div class="day-details"></div>
+          </td>
+          <td class="day-cell" style="background:transparent; color:#1e293b;">
+            <div class="day-number">14</div>
+            <div class="day-details"></div>
+          </td>
+          <td class="day-cell" style="background:transparent; color:#1e293b;">
+            <div class="day-number">15</div>
+            <div class="day-details"></div>
+          </td>
+          <td class="day-cell" style="background:transparent; color:#1e293b;">
+            <div class="day-number">16</div>
+            <div class="day-details"></div>
+          </td>
+          <td class="day-cell" style="background:transparent; color:#1e293b;">
+            <div class="day-number">17</div>
+            <div class="day-details"></div>
+          </td>
+          <td class="day-cell" style="background:transparent; color:#1e293b;">
+            <div class="day-number">18</div>
+            <div class="day-details"></div>
+          </td></tr><tr>
+          <td class="day-cell" style="background:transparent; color:#1e293b;">
+            <div class="day-number">19</div>
+            <div class="day-details"></div>
+          </td>
+          <td class="day-cell" style="background:transparent; color:#1e293b;">
+            <div class="day-number">20</div>
+            <div class="day-details"></div>
+          </td>
+          <td class="day-cell" style="background:transparent; color:#1e293b;">
+            <div class="day-number">21</div>
+            <div class="day-details"></div>
+          </td>
+          <td class="day-cell" style="background:transparent; color:#1e293b;">
+            <div class="day-number">22</div>
+            <div class="day-details"></div>
+          </td>
+          <td class="day-cell" style="background:transparent; color:#1e293b;">
+            <div class="day-number">23</div>
+            <div class="day-details"></div>
+          </td>
+          <td class="day-cell" style="background:transparent; color:#1e293b;">
+            <div class="day-number">24</div>
+            <div class="day-details"></div>
+          </td>
+          <td class="day-cell" style="background:transparent; color:#1e293b;">
+            <div class="day-number">25</div>
+            <div class="day-details"></div>
+          </td></tr><tr>
+          <td class="day-cell" style="background:transparent; color:#1e293b;">
+            <div class="day-number">26</div>
+            <div class="day-details"></div>
+          </td>
+          <td class="day-cell" style="background:transparent; color:#1e293b;">
+            <div class="day-number">27</div>
+            <div class="day-details"></div>
+          </td>
+          <td class="day-cell" style="background:transparent; color:#1e293b;">
+            <div class="day-number">28</div>
+            <div class="day-details"></div>
+          </td>
+          <td class="day-cell" style="background:transparent; color:#1e293b;">
+            <div class="day-number">29</div>
+            <div class="day-details"></div>
+          </td>
+          <td class="day-cell" style="background:transparent; color:#1e293b;">
+            <div class="day-number">30</div>
+            <div class="day-details"></div>
+          </td>
+          <td class="day-cell" style="background:transparent; color:#1e293b;">
+            <div class="day-number">31</div>
+            <div class="day-details"></div>
+          </td><td class="empty"></td></tr>
+      </tbody>
+    </table>
+    <div class="legend">
+      <div class="legend-item"><span class="legend-color" style="background:#FF6384"></span> アクティブ日</div>
+      <div class="legend-item"><span class="legend-color" style="background:#eef2ff"></span> 無活動日</div>
+    </div>
+  </div>
+</body>
+</html>

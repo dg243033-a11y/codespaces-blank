@@ -1,0 +1,42 @@
+{
+  "2026-06-15": [
+    {
+      "category": "Sleep",
+      "duration": 480,
+      "details": "",
+      "timestamp": "2026-06-15T02:09:30.487Z"
+    },
+    {
+      "category": "Work",
+      "duration": 480,
+      "details": "",
+      "timestamp": "2026-06-15T02:09:30.551Z"
+    },
+    {
+      "category": "Relax",
+      "duration": 240,
+      "details": "",
+      "timestamp": "2026-06-15T02:09:30.610Z"
+    },
+    {
+      "category": "Meals",
+      "duration": 120,
+      "details": "",
+      "timestamp": "2026-06-15T02:09:30.678Z"
+    }
+  ],
+  "2026-06-22": [
+    {
+      "category": "Work",
+      "duration": 135,
+      "details": "Coding project",
+      "timestamp": "2026-06-22T02:39:23.770Z"
+    },
+    {
+      "category": "Relax",
+      "duration": 10,
+      "details": "Break",
+      "timestamp": "2026-06-22T02:37:53.545Z"
+    }
+  ]
+}
