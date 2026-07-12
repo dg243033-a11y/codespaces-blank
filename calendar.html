@@ -152,6 +152,22 @@
   </div>
 
   <div id="eventsList"></div>
+  
+  <div id="calendarRoot" style="margin-top:24px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <button id="prevMonth">◀</button>
+      <h2 id="monthLabel" style="font-size:18px;margin:0"></h2>
+      <button id="nextMonth">▶</button>
+    </div>
+    <table id="calendarGrid" style="width:100%;border-collapse:collapse;text-align:center;">
+      <thead>
+        <tr>
+          <th>日</th><th>月</th><th>火</th><th>水</th><th>木</th><th>金</th><th>土</th>
+        </tr>
+      </thead>
+      <tbody id="calendarBody"></tbody>
+    </table>
+  </div>
   </div>
 
   <script src="っし"></script>
@@ -175,6 +191,88 @@
     const params = new URLSearchParams(location.search);
     const user = params.get('user');
     if (user) document.getElementById('username').value = user;
+
+    // Calendar rendering
+    function getEvents() {
+      try { if (window.myEvents && window.myEvents._getAll) return window.myEvents._getAll(); } catch (e) {}
+      try { return JSON.parse(localStorage.getItem('events')||'[]'); } catch (e) { return []; }
+    }
+
+    function renderCalendar(year, month) {
+      const first = new Date(year, month, 1);
+      const startDay = first.getDay();
+      const days = new Date(year, month+1, 0).getDate();
+
+      document.getElementById('monthLabel').textContent = `${year}年 ${String(month+1).padStart(2,'0')}月`;
+      const body = document.getElementById('calendarBody');
+      body.innerHTML = '';
+
+      const events = getEvents();
+      const eventMap = {};
+      events.forEach(e => { if (e && e.date) { eventMap[e.date] = eventMap[e.date] || []; eventMap[e.date].push(e); } });
+
+      let day = 1 - startDay;
+      for (let week = 0; week < 6; week++) {
+        const tr = document.createElement('tr');
+        for (let wd = 0; wd < 7; wd++, day++) {
+          const td = document.createElement('td');
+          td.style.border = '1px solid #e5e7eb';
+          td.style.padding = '8px';
+          td.style.height = '80px';
+          td.style.verticalAlign = 'top';
+          if (day < 1 || day > days) {
+            td.innerHTML = '';
+            td.style.background = 'transparent';
+          } else {
+            const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+            const h = document.createElement('div');
+            h.textContent = day;
+            h.style.fontWeight = '700';
+            td.appendChild(h);
+
+            if (eventMap[dateStr]) {
+              const marker = document.createElement('div');
+              marker.textContent = `${eventMap[dateStr].length} 件`; 
+              marker.style.marginTop = '6px';
+              marker.style.fontSize = '12px';
+              marker.style.background = '#3b82f6';
+              marker.style.color = '#fff';
+              marker.style.display = 'inline-block';
+              marker.style.padding = '2px 6px';
+              marker.style.borderRadius = '12px';
+              td.appendChild(marker);
+            }
+
+            td.style.cursor = 'pointer';
+            td.addEventListener('click', () => {
+              // filter event list to that date
+              const list = getEvents().filter(ev => ev.date === dateStr);
+              const container = document.getElementById('eventsList');
+              container.innerHTML = '';
+              if (list.length === 0) container.innerHTML = '<div class="event">その日の予定はありません</div>';
+              list.forEach((event, idx) => {
+                const el = document.createElement('div');
+                el.className = 'event' + (event.done ? ' done' : '');
+                el.innerHTML = `<strong>${event.date} ${event.time}</strong><div>${event.title}</div>`;
+                container.appendChild(el);
+              });
+            });
+          }
+          tr.appendChild(td);
+        }
+        body.appendChild(tr);
+        if (day > days) break;
+      }
+    }
+
+    let calDate = new Date();
+    function renderCurrent() { renderCalendar(calDate.getFullYear(), calDate.getMonth()); }
+    document.getElementById('prevMonth').addEventListener('click', () => { calDate.setMonth(calDate.getMonth()-1); renderCurrent(); });
+    document.getElementById('nextMonth').addEventListener('click', () => { calDate.setMonth(calDate.getMonth()+1); renderCurrent(); });
+
+    document.addEventListener('DOMContentLoaded', () => {
+      renderCurrent();
+    });
   </script>
 </body>
 </html>

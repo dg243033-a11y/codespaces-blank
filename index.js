@@ -37,6 +37,7 @@ const ANSI_COLOR_CODES = {
 
 const PENDING_SLEEP_PATH = path.join(__dirname, 'pending_sleep.json');
 const PENDING_WAKE_PATH = path.join(__dirname, 'pending_wake.json');
+const ACTIVE_JOBS_PATH = path.join(__dirname, 'active_jobs.json');
 
 function pendingSleepActive() {
   if (!fs.existsSync(PENDING_SLEEP_PATH)) return null;
@@ -155,10 +156,30 @@ function logPriorityMessage(message, priority = 'normal') {
   console.log(`${color}[${label}]${PRIORITY_COLORS.reset} ${message}`);
 }
 
+// Log with an explicit text color override (colorName or ANSI code)
+function logWithColor(message, priority = 'normal', textColor = null) {
+  const label = formatPriorityLabel(priority);
+  let colorCode = null;
+  if (textColor) colorCode = resolvePriorityColor(textColor) || resolvePriorityColor(String(textColor));
+  if (!colorCode) colorCode = getPriorityColor(label);
+  console.log(`${colorCode}[${label}]${PRIORITY_COLORS.reset} ${message}`);
+}
+
 function removeActiveJob(task) {
   const index = activeJobs.findIndex(job => job.task === task);
   if (index >= 0) {
     activeJobs.splice(index, 1);
+    try { writeActiveJobs(); } catch (e) {}
+  }
+}
+
+function writeActiveJobs() {
+  try {
+    // Serialize minimal job info (don't include function refs)
+    const out = activeJobs.map((j, idx) => ({ id: idx, type: j.type, time: j.time, label: j.label || null, priority: j.priority, color: j.color || null }));
+    fs.writeFileSync(ACTIVE_JOBS_PATH, JSON.stringify(out, null, 2));
+  } catch (e) {
+    // ignore
   }
 }
 
@@ -177,9 +198,62 @@ function listScheduledJobs(filterPriority = null) {
     const detail = job.type === 'sleep' || job.type === 'wake'
       ? `${typeLabel} ${job.time}`
       : `${typeLabel} ${job.label || job.time}`;
-    logPriorityMessage(`- ${detail}`, job.priority);
+    logWithColor(`- ${detail}`, job.priority, job.color || null);
   });
   return jobs;
+}
+
+// Start a small HTTP UI to list and change job colors
+function startUiServer(port = 3000) {
+  const http = require('http');
+  const server = http.createServer((req, res) => {
+    if (req.method === 'GET' && req.url === '/') {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end('<!doctype html><html><head><meta charset="utf-8"><title>Schedules</title></head><body><h1>Scheduled Jobs</h1><div id="jobs"></div><script>\n' +
+      'async function load(){\n' +
+      '  const r=await fetch("/jobs"); const jobs=await r.json(); const el=document.getElementById("jobs"); el.innerHTML=""; jobs.forEach((j,i)=>{\n' +
+      '    const row=document.createElement("div"); row.style.margin="8px";\n' +
+      '    row.innerHTML = "<span style=\"display:inline-block;width:300px;color:" + (j.color||\"#000\") + "\">[" + j.priority + "] " + j.type + " " + (j.label||j.time) + "</span>";\n' +
+      '    ["red","yellow","green","blue","magenta","cyan"].forEach(c=>{ const b=document.createElement("button"); b.textContent=c; b.style.margin="0 4px"; b.onclick=()=>fetch("/set-color",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:i,color:c})}).then(()=>load()); row.appendChild(b); });\n' +
+      '    el.appendChild(row);\n' +
+      '  });\n' +
+      '}\n' +
+      'load();</script></body></html>');
+      return;
+    }
+
+    if (req.method === 'GET' && req.url === '/jobs') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      const out = activeJobs.map((j, idx) => ({ id: idx, type: j.type, time: j.time, label: j.label || null, priority: j.priority, color: j.color || null }));
+      res.end(JSON.stringify(out));
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/set-color') {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', () => {
+        try {
+          const obj = JSON.parse(body);
+          const id = Number(obj.id);
+          const color = String(obj.color || '');
+          if (!Number.isNaN(id) && activeJobs[id]) {
+            activeJobs[id].color = color;
+            writeActiveJobs();
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true }));
+            return;
+          }
+        } catch (e) {}
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false }));
+      });
+      return;
+    }
+
+    res.writeHead(404); res.end('Not found');
+  });
+  server.listen(port, () => console.log(`UI server listening on http://localhost:${port}`));
 }
 
 function parseDateTime(dateStr, timeStr) {
@@ -274,7 +348,7 @@ function speakNotification(message, voice = null, speed = 1) {
   }
 }
 
-function sleepReminder(bedtime, music = null, voice = null, volume = DEFAULT_VOLUME, priority = 'normal') {
+function sleepReminder(bedtime, music = null, voice = null, volume = DEFAULT_VOLUME, priority = 'normal', textColor = null) {
   const [hh, mm] = bedtime.split(':').map(Number);
   if (isNaN(hh) || isNaN(mm) || hh < 0 || hh > 23 || mm < 0 || mm > 59) {
     console.error('Invalid bedtime format. Use HH:MM (e.g., 23:00)');
@@ -284,7 +358,7 @@ function sleepReminder(bedtime, music = null, voice = null, volume = DEFAULT_VOL
   const cronExpression = `${mm} ${hh} * * *`;
   const task = bedtime === 'stop' ? null : cron.schedule(cronExpression, () => {
     const now = new Date();
-    logPriorityMessage(`💤 [${now.toLocaleTimeString()}] Bedtime reminder: It's ${bedtime} - Time to sleep!`, priority);
+    logWithColor(`💤 [${now.toLocaleTimeString()}] Bedtime reminder: It's ${bedtime} - Time to sleep!`, priority, textColor);
     
     if (music) {
       playMusicNotification(music, volume);
@@ -331,8 +405,9 @@ function sleepReminder(bedtime, music = null, voice = null, volume = DEFAULT_VOL
   });
 
   if (task) {
-    activeJobs.push({ task, type: 'sleep', time: bedtime, priority });
+    activeJobs.push({ task, type: 'sleep', time: bedtime, priority, color: textColor || null });
     console.log(`✅ Sleep reminder scheduled for ${bedtime} every day`);
+    try { writeActiveJobs(); } catch (e) {}
     return task;
   }
   return null;
@@ -353,6 +428,7 @@ function stopSleepReminder() {
     }
   });
   activeJobs.length = 0;
+  try { writeActiveJobs(); } catch (e) {}
 }
 
 function playMusicNotification(musicFile, volume = DEFAULT_VOLUME) {
@@ -447,7 +523,7 @@ function playNotificationSound(volume = DEFAULT_VOLUME) {
   try { process.stdout.write('\u0007'); } catch (e) {}
 }
 
-function scheduleNotification(dateStr, timeStr, task, voice = null, music = null, volume = DEFAULT_VOLUME, priority = 'normal') {
+function scheduleNotification(dateStr, timeStr, task, voice = null, music = null, volume = DEFAULT_VOLUME, priority = 'normal', textColor = null) {
   const target = parseDateTime(dateStr, timeStr);
   const now = new Date();
   const ms = target - now;
@@ -457,14 +533,14 @@ function scheduleNotification(dateStr, timeStr, task, voice = null, music = null
   }
 
   const norm = normalizePriority(priority);
-  logPriorityMessage(`Scheduled: ${task} at ${target.toString()} (in ${Math.round(ms / 1000)}s)`, norm);
+  logWithColor(`Scheduled: ${task} at ${target.toString()} (in ${Math.round(ms / 1000)}s)`, norm, textColor);
 
   // Consider high/urgent alerts and boost their effective volume; prefer a short beep
   const isHighAlert = norm === 'high' || norm === 'urgent';
 
   const timeoutId = safeSetTimeout(ms, () => {
     removeActiveJob(timeoutId);
-    logPriorityMessage(`🔔 Notification: ${task} — ${target.toLocaleString()}`, norm);
+    logWithColor(`🔔 Notification: ${task} — ${target.toLocaleString()}`, norm, textColor);
 
     const baseVol = Number.isNaN(Number(volume)) ? DEFAULT_VOLUME : Number(volume);
     let effVolume = baseVol;
@@ -486,7 +562,8 @@ function scheduleNotification(dateStr, timeStr, task, voice = null, music = null
     }
   });
 
-  activeJobs.push({ task: timeoutId, type: 'notification', time: target.toISOString(), label: task, priority: norm });
+  activeJobs.push({ task: timeoutId, type: 'notification', time: target.toISOString(), label: task, priority: norm, color: textColor || null });
+  try { writeActiveJobs(); } catch (e) {}
   return ms;
 }
 
@@ -498,7 +575,7 @@ function demoSoon() {
   scheduleNotification(date, time, 'Demo task', null, null, DEFAULT_VOLUME);
 }
 
-function setWakeAlarm(wakeTime, music = null, voice = null, volume = DEFAULT_VOLUME, priority = 'normal') {
+function setWakeAlarm(wakeTime, music = null, voice = null, volume = DEFAULT_VOLUME, priority = 'normal', textColor = null) {
   const [hh, mm] = wakeTime.split(':').map(Number);
   if (isNaN(hh) || isNaN(mm)) {
     console.error('Invalid wake time. Use HH:MM');
@@ -507,7 +584,7 @@ function setWakeAlarm(wakeTime, music = null, voice = null, volume = DEFAULT_VOL
   const cronExpression = `${mm} ${hh} * * *`;
   const task = cron.schedule(cronExpression, () => {
     const now = new Date();
-    logPriorityMessage(`⏰ [${now.toLocaleTimeString()}] Wake alarm: ${wakeTime}`, priority);
+    logWithColor(`⏰ [${now.toLocaleTimeString()}] Wake alarm: ${wakeTime}`, priority, textColor);
     if (music) {
       playMusicNotification(music, volume);
     } else {
@@ -519,8 +596,9 @@ function setWakeAlarm(wakeTime, music = null, voice = null, volume = DEFAULT_VOL
     } catch (e) {}
   }, { runOnInit: false });
 
-  activeJobs.push({ task, type: 'wake', time: wakeTime, priority });
+  activeJobs.push({ task, type: 'wake', time: wakeTime, priority, color: textColor || null });
   console.log(`✅ Wake alarm scheduled for ${wakeTime} every day`);
+  try { writeActiveJobs(); } catch (e) {}
   return task;
 }
 
@@ -536,10 +614,13 @@ if (require.main === module) {
   let priority = 'normal';
   let customPriorityName = null;
   let customPriorityColor = null;
+  let textColor = null;
   let logActivityCmd = null;
   let showChart = false;
   let showCalendar = false;
   let calendarTarget = null;
+  let serveUi = false;
+  let uiPort = 3000;
   const positional = [];
 
   for (let i = 0; i < args.length; i += 1) {
@@ -577,6 +658,20 @@ if (require.main === module) {
     } else if (arg === '--volume' && args[i + 1]) {
       volume = Number(args[++i]);
       if (Number.isNaN(volume)) volume = DEFAULT_VOLUME;
+    } else if (arg.startsWith('--text-color=')) {
+      textColor = arg.slice('--text-color='.length);
+    } else if (arg === '--text-color' && args[i + 1]) {
+      textColor = args[++i];
+    } else if (arg.startsWith('--color=')) {
+      textColor = arg.slice('--color='.length);
+    } else if (arg === '--color' && args[i + 1]) {
+      textColor = args[++i];
+    } else if (arg === '--serve-ui') {
+      serveUi = true;
+    } else if (arg.startsWith('--ui-port=')) {
+      uiPort = Number(arg.slice('--ui-port='.length)) || uiPort;
+    } else if (arg === '--ui-port' && args[i + 1]) {
+      uiPort = Number(args[++i]) || uiPort;
     } else if (arg.startsWith('--priority=')) {
       priority = normalizePriority(arg.slice('--priority='.length));
     } else if (arg === '--priority' && args[i + 1]) {
@@ -672,7 +767,7 @@ if (require.main === module) {
         console.error('⚠️  保留中のウェイクアラームが既に存在します。先に処理するか削除してください。');
         return;
       }
-      setWakeAlarm(wakeTime, music, voice, volume, priority);
+      setWakeAlarm(wakeTime, music, voice, volume, priority, textColor);
       return;
     } else if (arg === '--stop-sleep') {
       stopSleepReminder();
@@ -687,6 +782,10 @@ if (require.main === module) {
     if (priority !== customPriorityName) {
       priority = normalizePriority(customPriorityName);
     }
+  }
+
+  if (serveUi) {
+    startUiServer(uiPort);
   }
 
   if (logActivityCmd) {
@@ -726,7 +825,7 @@ if (require.main === module) {
       console.error('⚠️  同じ時刻のスリープリマインダーが既にスケジュールされています。');
       return;
     }
-    sleepReminder(sleep, music, voice, volume, priority);
+    sleepReminder(sleep, music, voice, volume, priority, textColor);
     console.log('Press Ctrl+C to stop...');
   } else if (positional.length === 0) {
     console.log('Usage: node index.js <YYYY-MM-DD|now> <HH:MM[:SS]|ms-for-now> <task...> [--voice <voice>] [--music <file>] [--priority low|normal|high|urgent|custom] [--custom-priority <name>] [--priority-color <color>]');
@@ -744,9 +843,9 @@ if (require.main === module) {
     console.log('Demo: node index.js now 3000');
   } else if (positional[0] === 'now') {
     const ms = Number(positional[1]) || 3000;
-    scheduleNotification('now', String(ms), positional.slice(2).join(' ') || 'Immediate task', voice, music, volume, priority);
+    scheduleNotification('now', String(ms), positional.slice(2).join(' ') || 'Immediate task', voice, music, volume, priority, textColor);
   } else if (positional.length >= 3) {
-    scheduleNotification(positional[0], positional[1], positional.slice(2).join(' '), voice, music, volume, priority);
+    scheduleNotification(positional[0], positional[1], positional.slice(2).join(' '), voice, music, volume, priority, textColor);
   } else {
     console.log('Invalid arguments. See usage.');
   }
