@@ -12,6 +12,25 @@ function getJSTDate(date) {
   return jstDate.toISOString().slice(0, 10);
 }
 
+function parseTimeToMinutes(timeString) {
+  if (typeof timeString !== 'string') return null;
+  const trimmed = timeString.trim();
+  const match = trimmed.match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null;
+  return hours * 60 + minutes;
+}
+
+function calculateDurationFromTimeRange(startTime, endTime) {
+  const startMinutes = parseTimeToMinutes(startTime);
+  const endMinutes = parseTimeToMinutes(endTime);
+  if (startMinutes === null || endMinutes === null) return 0;
+  if (endMinutes <= startMinutes) return 0;
+  return endMinutes - startMinutes;
+}
+
 // Helper to format time in JST
 function formatJST(date) {
   const jstDate = new Date(date.getTime() + JST_OFFSET);
@@ -280,10 +299,6 @@ function generatePieChart(date = null) {
   const dayActivities = activities[targetDate] || [];
   const sleepMinutes = getSleepMinutesForDate(targetDate);
 
-  if (dayActivities.length === 0 && sleepMinutes === 0) {
-    return `<html><body><p>No activities recorded for ${targetDate}</p></body></html>`;
-  }
-
   // Aggregate by category
   const categoryMap = {};
   dayActivities.forEach(activity => {
@@ -323,6 +338,18 @@ function generatePieChart(date = null) {
   const yesterdaySleep = getSleepMinutesForDate(yesterdayString);
   const sleepDecrease = yesterdaySleep > 0 ? ((yesterdaySleep - todaySleep) / yesterdaySleep) * 100 : null;
   const sleepAlert = sleepDecrease !== null && sleepDecrease >= 10;
+  const initialEntries = dayActivities.map(activity => ({
+    category: activity.category,
+    duration: Number(activity.duration || 0),
+    details: activity.details || '',
+    timestamp: activity.timestamp || new Date().toISOString()
+  }));
+  const presetCategories = [
+    { key: 'Breakfast', label: '朝食', color: '#FF6384' },
+    { key: 'Lunch', label: '昼食', color: '#36A2EB' },
+    { key: 'Dinner', label: '夕食', color: '#FFCE56' },
+    { key: 'Bath', label: 'お風呂', color: '#4BC0C0' }
+  ];
 
   // Weekly sleep summary
   const weekly = getWeeklySleepTotals();
@@ -370,6 +397,52 @@ function generatePieChart(date = null) {
       border-radius: 8px;
       margin-top: 20px;
     }
+    .time-form {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 16px;
+      margin-top: 20px;
+    }
+    .time-grid {
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .time-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .time-row label {
+      min-width: 60px;
+      font-weight: 600;
+      color: #334155;
+    }
+    .time-row input {
+      padding: 8px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+    }
+    .time-form button {
+      margin-top: 12px;
+      padding: 10px 14px;
+      border: none;
+      border-radius: 8px;
+      background: #667eea;
+      color: white;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .time-form button:hover {
+      background: #5568d3;
+    }
+    .form-message {
+      margin-top: 10px;
+      color: #475569;
+      font-size: 14px;
+    }
     .stat-item {
       display: flex;
       justify-content: space-between;
@@ -401,21 +474,38 @@ function generatePieChart(date = null) {
     <div class="chart-wrapper">
       <canvas id="pieChart"></canvas>
     </div>
-    <div class="stats">
-      ${chartData.map(item => `
-        <div class="stat-item">
-          <span class="stat-label">
-            <span style="display: inline-block; width: 12px; height: 12px; background: ${item.color}; border-radius: 2px; margin-right: 8px;"></span>
-            ${item.label}
-          </span>
-          <span class="stat-value">${item.value}分</span>
+    <form id="timeRangeForm" class="time-form">
+      <h3 style="margin:0 0 6px 0;">🕒 朝食・昼食・夕食・お風呂の時間を追加</h3>
+      <div class="time-grid">
+        <div class="time-row">
+          <label for="BreakfastStart">朝食</label>
+          <input type="time" id="BreakfastStart" />
+          <span>〜</span>
+          <input type="time" id="BreakfastEnd" />
         </div>
-      `).join('')}
-      <div class="stat-item total">
-        <span class="stat-label">合計</span>
-        <span class="stat-value">${durations.reduce((a, b) => a + b, 0)}分 (${(durations.reduce((a, b) => a + b, 0) / 60).toFixed(1)}時間)</span>
+        <div class="time-row">
+          <label for="LunchStart">昼食</label>
+          <input type="time" id="LunchStart" />
+          <span>〜</span>
+          <input type="time" id="LunchEnd" />
+        </div>
+        <div class="time-row">
+          <label for="DinnerStart">夕食</label>
+          <input type="time" id="DinnerStart" />
+          <span>〜</span>
+          <input type="time" id="DinnerEnd" />
+        </div>
+        <div class="time-row">
+          <label for="BathStart">お風呂</label>
+          <input type="time" id="BathStart" />
+          <span>〜</span>
+          <input type="time" id="BathEnd" />
+        </div>
       </div>
-    </div>
+      <button type="submit">この日の活動として追加</button>
+      <div id="formMessage" class="form-message"></div>
+    </form>
+    <div class="stats"></div>
     <div style="margin-top:18px;">
       <h3 style="margin:12px 0 6px 0;">🛌 週間の睡眠（先週比）</h3>
       <div style="background:#fff;padding:12px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.06);">
@@ -436,35 +526,133 @@ function generatePieChart(date = null) {
   </div>
 
   <script>
-    const ctx = document.getElementById('pieChart').getContext('2d');
-    const pieChart = new Chart(ctx, {
-      type: 'doughnut',
-      data: {
-        labels: ${JSON.stringify(categories)},
-        datasets: [{
-          data: ${JSON.stringify(durations)},
-          backgroundColor: ${JSON.stringify(chartData.map(c => c.color))},
-          borderColor: '#fff',
-          borderWidth: 2
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            position: 'bottom',
-            labels: {
-              usePointStyle: true,
-              padding: 15,
-              font: {
-                size: 14
+    function parseTimeToMinutes(timeString) {
+      if (typeof timeString !== 'string') return null;
+      const match = timeString.trim().match(/^(\\d{1,2}):(\\d{2})$/);
+      if (!match) return null;
+      const hours = Number(match[1]);
+      const minutes = Number(match[2]);
+      if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null;
+      return hours * 60 + minutes;
+    }
+
+    function calculateDurationFromTimeRange(startTime, endTime) {
+      const startMinutes = parseTimeToMinutes(startTime);
+      const endMinutes = parseTimeToMinutes(endTime);
+      if (startMinutes === null || endMinutes === null) return 0;
+      if (endMinutes <= startMinutes) return 0;
+      return endMinutes - startMinutes;
+    }
+
+    const initialEntries = ${JSON.stringify(initialEntries)};
+    const presetCategories = ${JSON.stringify(presetCategories)};
+    const storageKey = 'daily-activity-entries-${targetDate}';
+    const baseEntries = Array.isArray(initialEntries) ? initialEntries : [];
+    let persistedEntries = [];
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        persistedEntries = Array.isArray(parsed) ? parsed : [];
+      }
+    } catch (e) {
+      persistedEntries = [];
+    }
+    let entries = [...baseEntries, ...persistedEntries];
+
+    function aggregateEntries(list) {
+      const entryMap = {};
+      list.forEach((item) => {
+        if (!item || !item.category || !Number(item.duration || 0)) return;
+        entryMap[item.category] = (entryMap[item.category] || 0) + Number(item.duration || 0);
+      });
+      return Object.entries(entryMap).map(([category, duration]) => ({ category, duration }));
+    }
+
+    function renderChart() {
+      const summary = aggregateEntries(entries);
+      const labels = summary.map((item) => item.category);
+      const values = summary.map((item) => item.duration);
+      const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#C9CBCF'];
+      const statsHtml = summary.map((item, index) => {
+        const color = colors[index % colors.length];
+        return '<div class="stat-item"><span class="stat-label"><span style="display:inline-block;width:12px;height:12px;background:' + color + ';border-radius:2px;margin-right:8px;"></span>' + item.category + '</span><span class="stat-value">' + item.duration + '分</span></div>';
+      }).join('');
+      const totalMinutes = values.reduce((sum, value) => sum + value, 0);
+      const statsContainer = document.querySelector('.stats');
+      if (statsContainer) {
+        statsContainer.innerHTML = statsHtml + '<div class="stat-item total"><span class="stat-label">合計</span><span class="stat-value">' + totalMinutes + '分 (' + (totalMinutes / 60).toFixed(1) + '時間)</span></div>';
+      }
+
+      if (window.dailyActivityChart) {
+        window.dailyActivityChart.data.labels = labels;
+        window.dailyActivityChart.data.datasets[0].data = values;
+        window.dailyActivityChart.data.datasets[0].backgroundColor = labels.map((_, index) => colors[index % colors.length]);
+        window.dailyActivityChart.update();
+        return;
+      }
+
+      const ctx = document.getElementById('pieChart').getContext('2d');
+      window.dailyActivityChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: values,
+            backgroundColor: labels.map((_, index) => colors[index % colors.length]),
+            borderColor: '#fff',
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: {
+                usePointStyle: true,
+                padding: 15,
+                font: {
+                  size: 14
+                }
               }
             }
           }
         }
+      });
+    }
+
+    document.getElementById('timeRangeForm').addEventListener('submit', function (event) {
+      event.preventDefault();
+      const formMessage = document.getElementById('formMessage');
+      const newEntries = presetCategories.map((category) => {
+        const startTime = document.getElementById(category.key + 'Start').value;
+        const endTime = document.getElementById(category.key + 'End').value;
+        if (!startTime || !endTime) return null;
+        const duration = calculateDurationFromTimeRange(startTime, endTime);
+        if (!duration) return null;
+        return {
+          category: category.label,
+          duration,
+          details: startTime + '〜' + endTime,
+          timestamp: new Date().toISOString()
+        };
+      }).filter(Boolean);
+
+      if (newEntries.length === 0) {
+        formMessage.textContent = '有効な時間帯を入力してください。';
+        return;
       }
+
+      persistedEntries = [...persistedEntries, ...newEntries];
+      localStorage.setItem(storageKey, JSON.stringify(persistedEntries));
+      entries = [...baseEntries, ...persistedEntries];
+      renderChart();
+      formMessage.textContent = newEntries.map((entry) => entry.category + 'を' + entry.duration + '分として追加しました').join(' / ');
     });
+
+    renderChart();
   </script>
 </body>
 </html>`;
@@ -683,6 +871,8 @@ function saveMonthlyCalendar(outputFile = null, target = null) {
 module.exports = {
   logActivity,
   getTodayActivities,
+  parseTimeToMinutes,
+  calculateDurationFromTimeRange,
   generatePieChart,
   savePieChart,
   generateMonthlyCalendar,
